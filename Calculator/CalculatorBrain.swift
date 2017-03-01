@@ -101,7 +101,8 @@ struct CalculatorBrain {
             case .binaryOperation(let function):
                 if accumulator != nil {
                     addToDescription(symbol)
-                    pendingBinaryOperation = PendingBinaryOperation(function: function, firstOperand: accumulator!)
+                    pendingBinaryOperation = PendingBinaryOperation(function: function,
+                                                                    firstOperand: accumulator!)
                     accumulator = nil
                 }
             case .equals:
@@ -114,7 +115,11 @@ struct CalculatorBrain {
     
     mutating func setOperand(_ operand: Double) {
         accumulator = operand
-        addToDescription(String(operand), surround: false, clearIfNotPending: true)
+        let formatter = NumberFormatter()
+        formatter.maximumFractionDigits = 6
+        addToDescription(formatter.string(from: NSNumber(value: operand))!,
+                         surround: false,
+                         clearIfNotPending: true)
     }
     
     mutating func clear() {

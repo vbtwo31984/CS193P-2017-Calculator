@@ -19,7 +19,9 @@ class ViewController: UIViewController {
             return Double(display.text!)!
         }
         set {
-            display.text = String(newValue)
+            let formatter = NumberFormatter()
+            formatter.maximumFractionDigits = 6
+            display.text = formatter.string(from: NSNumber(value: newValue))
         }
     }
     

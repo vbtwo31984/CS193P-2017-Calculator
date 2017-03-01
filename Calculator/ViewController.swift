@@ -10,6 +10,7 @@ import UIKit
 
 class ViewController: UIViewController {
     @IBOutlet weak var display: UILabel!
+    @IBOutlet weak var descriptionDisplay: UILabel!
     
     private var brain = CalculatorBrain()
     var userIsInTheMiddleOfTyping = false
@@ -26,10 +27,17 @@ class ViewController: UIViewController {
         let digit = sender.currentTitle!
         if userIsInTheMiddleOfTyping {
             let textCurrentlyInDisplay = display.text!
-            display.text = textCurrentlyInDisplay + digit
+            if digit != "." || !textCurrentlyInDisplay.contains(".") {
+                display.text = textCurrentlyInDisplay + digit
+            }
         }
         else {
-            display.text = digit
+            if digit == "." {
+                display.text = "0."
+            }
+            else {
+                display.text = digit
+            }
             userIsInTheMiddleOfTyping = true
         }
     }
@@ -44,6 +52,31 @@ class ViewController: UIViewController {
         }
         if let result = brain.result {
             displayValue = result
+        }
+        
+        let description = brain.description
+        if brain.resultIsPending {
+            descriptionDisplay.text = description + " ..."
+        }
+        else {
+            descriptionDisplay.text = description + " ="
+        }
+    }
+    
+    @IBAction func clear() {
+        brain.clear()
+        displayValue = 0
+        descriptionDisplay.text = " "
+        userIsInTheMiddleOfTyping = false
+    }
+    
+    @IBAction func backspace() {
+        if userIsInTheMiddleOfTyping {
+            display.text!.remove(at: display.text!.index(before: display.text!.endIndex))
+            if display.text! == "" || display.text! == "0" {
+                display.text = "0"
+                userIsInTheMiddleOfTyping = false
+            }
         }
     }
 }

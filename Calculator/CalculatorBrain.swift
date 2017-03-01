@@ -41,10 +41,42 @@ struct CalculatorBrain {
         "=": Operation.equals
     ]
     private var pendingBinaryOperation: PendingBinaryOperation?
+    private var descriptionString = ""
+    private var pendingDescriptionString = ""
     
     var result: Double? {
         get {
             return accumulator
+        }
+    }
+    
+    var resultIsPending: Bool {
+        get {
+            return pendingBinaryOperation != nil
+        }
+    }
+    
+    var description: String {
+        return "\(descriptionString) \(pendingDescriptionString)"
+    }
+    
+    private mutating func addToDescription(_ string: String, surround: Bool = false, clearIfNotPending: Bool = false) {
+        if clearIfNotPending && !resultIsPending {
+            descriptionString = ""
+        }
+        var workingDescriptionString = pendingBinaryOperation == nil ? descriptionString : pendingDescriptionString
+        if surround {
+            workingDescriptionString = "\(string)(\(workingDescriptionString))"
+        }
+        else {
+            workingDescriptionString += " \(string)"
+        }
+        workingDescriptionString = workingDescriptionString.trimmingCharacters(in: CharacterSet.whitespaces)
+        if pendingBinaryOperation == nil {
+            descriptionString = workingDescriptionString
+        }
+        else {
+            pendingDescriptionString = workingDescriptionString
         }
     }
     
@@ -60,22 +92,35 @@ struct CalculatorBrain {
             switch operation {
             case .constant(let value):
                 accumulator = value
+                addToDescription(symbol, surround:false, clearIfNotPending: true)
             case .unaryOperation(let function):
                 if accumulator != nil {
                     accumulator = function(accumulator!)
+                    addToDescription(symbol, surround: true)
                 }
             case .binaryOperation(let function):
                 if accumulator != nil {
+                    addToDescription(symbol)
                     pendingBinaryOperation = PendingBinaryOperation(function: function, firstOperand: accumulator!)
                     accumulator = nil
                 }
             case .equals:
                 performPendingBinaryOperation()
+                descriptionString += " \(pendingDescriptionString)"
+                pendingDescriptionString = ""
             }
         }
     }
     
     mutating func setOperand(_ operand: Double) {
         accumulator = operand
+        addToDescription(String(operand), surround: false, clearIfNotPending: true)
+    }
+    
+    mutating func clear() {
+        accumulator = nil
+        pendingBinaryOperation = nil
+        descriptionString = ""
+        pendingDescriptionString = ""
     }
 }

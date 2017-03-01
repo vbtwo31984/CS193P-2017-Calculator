@@ -11,6 +11,7 @@ import Foundation
 struct CalculatorBrain {
     private enum Operation {
         case constant(Double)
+        case nullaryOperation(() -> Double)
         case unaryOperation((Double) -> Double)
         case binaryOperation((Double, Double) -> Double)
         case equals
@@ -38,7 +39,8 @@ struct CalculatorBrain {
         "÷": Operation.binaryOperation(/),
         "+": Operation.binaryOperation(+),
         "−": Operation.binaryOperation(-),
-        "=": Operation.equals
+        "=": Operation.equals,
+        "rnd": Operation.nullaryOperation({() in return Double(arc4random()) / Double(UInt32.max)})
     ]
     private var pendingBinaryOperation: PendingBinaryOperation?
     private var descriptionString = ""
@@ -84,6 +86,8 @@ struct CalculatorBrain {
         if pendingBinaryOperation != nil && accumulator != nil {
             accumulator = pendingBinaryOperation?.perform(with: accumulator!)
             pendingBinaryOperation = nil
+            descriptionString += " \(pendingDescriptionString)"
+            pendingDescriptionString = ""
         }
     }
     
@@ -100,6 +104,7 @@ struct CalculatorBrain {
                 }
             case .binaryOperation(let function):
                 if accumulator != nil {
+                    performPendingBinaryOperation()
                     addToDescription(symbol)
                     pendingBinaryOperation = PendingBinaryOperation(function: function,
                                                                     firstOperand: accumulator!)
@@ -107,9 +112,11 @@ struct CalculatorBrain {
                 }
             case .equals:
                 performPendingBinaryOperation()
-                descriptionString += " \(pendingDescriptionString)"
-                pendingDescriptionString = ""
+            case .nullaryOperation(let function):
+                accumulator = function()
+                addToDescription(symbol, surround: false, clearIfNotPending: true)
             }
+            
         }
     }
     

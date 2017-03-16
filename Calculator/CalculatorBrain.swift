@@ -97,6 +97,11 @@ struct CalculatorBrain {
                              clearIfNotPending: true)
         }
         
+        func setVariable(_ variable: String, withValue value: Double) {
+            accumulator = value
+            addToDescription(variable, surround: false, clearIfNotPending: true)
+        }
+        
         func performOperation(_ symbol: String) {
             if let operation = operations[symbol] {
                 switch operation {
@@ -133,25 +138,22 @@ struct CalculatorBrain {
             case .operation(let symbol):
                 performOperation(symbol)
             case .variable(let variable):
-                setOperand(operand: variables?[variable] ?? 0.0)
+                setVariable(variable, withValue: variables?[variable] ?? 0.0)
             }
         }
         return (result: accumulator, isPending: resultIsPending, description: "\(descriptionString) \(pendingDescriptionString)")
     }
     
     var result: Double? {
-        let result = evaluate()
-        return result.result
+        return evaluate().result
     }
     
     var resultIsPending: Bool {
-        let result = evaluate()
-        return result.isPending
+        return evaluate().isPending
     }
     
     var description: String {
-        let result = evaluate()
-        return result.description
+        return evaluate().description
     }
     
     mutating func performOperation(_ symbol: String) {
@@ -162,11 +164,17 @@ struct CalculatorBrain {
         program.append(InputType.operand(operand))
     }
     
-    mutating func setVariable(_ variable: String) {
-        program.append(InputType.variable(variable))
+    mutating func setOperand(variable named: String) {
+        program.append(InputType.variable(named))
     }
     
     mutating func clear() {
         program.removeAll()
+    }
+    
+    mutating func undo() {
+        if program.count > 0 {
+            program.removeLast()
+        }
     }
 }

@@ -17,6 +17,12 @@ struct CalculatorBrain {
         case equals
     }
     
+    private enum InputType {
+        case operand(Double)
+        case operation(String)
+        case variable(String)
+    }
+    
     private struct PendingBinaryOperation {
         let function: (Double, Double) -> Double
         let firstOperand: Double
@@ -26,7 +32,7 @@ struct CalculatorBrain {
         }
     }
     
-    private var accumulator: Double?
+    private var program = [InputType]()
     private var operations: Dictionary<String, Operation> = [
         "π": Operation.constant(Double.pi),
         "e": Operation.constant(M_E),
@@ -42,97 +48,125 @@ struct CalculatorBrain {
         "=": Operation.equals,
         "rnd": Operation.nullaryOperation({() in return Double(arc4random()) / Double(UInt32.max)})
     ]
-    private var pendingBinaryOperation: PendingBinaryOperation?
-    private var descriptionString = ""
-    private var pendingDescriptionString = ""
+    
+    func evaluate(using variables: Dictionary<String, Double>? = nil) -> (result: Double?, isPending: Bool, description: String) {
+        var accumulator: Double?
+        var pendingBinaryOperation: PendingBinaryOperation?
+        var descriptionString = ""
+        var pendingDescriptionString = ""
+        
+        var resultIsPending: Bool {
+            return pendingBinaryOperation != nil
+        }
+        
+        func addToDescription(_ string: String, surround: Bool = false, clearIfNotPending: Bool = false) {
+            if clearIfNotPending && !resultIsPending {
+                descriptionString = ""
+            }
+            var workingDescriptionString = pendingBinaryOperation == nil ? descriptionString : pendingDescriptionString
+            if surround {
+                workingDescriptionString = "\(string)(\(workingDescriptionString))"
+            }
+            else {
+                workingDescriptionString += " \(string)"
+            }
+            workingDescriptionString = workingDescriptionString.trimmingCharacters(in: CharacterSet.whitespaces)
+            if pendingBinaryOperation == nil {
+                descriptionString = workingDescriptionString
+            }
+            else {
+                pendingDescriptionString = workingDescriptionString
+            }
+        }
+        
+        func performPendingBinaryOperation() {
+            if pendingBinaryOperation != nil && accumulator != nil {
+                accumulator = pendingBinaryOperation?.perform(with: accumulator!)
+                pendingBinaryOperation = nil
+                descriptionString += " \(pendingDescriptionString)"
+                pendingDescriptionString = ""
+            }
+        }
+        
+        func setOperand(operand: Double) {
+            accumulator = operand
+            let formatter = NumberFormatter()
+            formatter.maximumFractionDigits = 6
+            addToDescription(formatter.string(from: NSNumber(value: operand))!,
+                             surround: false,
+                             clearIfNotPending: true)
+        }
+        
+        func performOperation(_ symbol: String) {
+            if let operation = operations[symbol] {
+                switch operation {
+                case .constant(let value):
+                    accumulator = value
+                    addToDescription(symbol, surround:false, clearIfNotPending: true)
+                case .unaryOperation(let function):
+                    if accumulator != nil {
+                        accumulator = function(accumulator!)
+                        addToDescription(symbol, surround: true)
+                    }
+                case .binaryOperation(let function):
+                    if accumulator != nil {
+                        performPendingBinaryOperation()
+                        addToDescription(symbol)
+                        pendingBinaryOperation = PendingBinaryOperation(function: function,
+                                                                        firstOperand: accumulator!)
+                        accumulator = nil
+                    }
+                case .equals:
+                    performPendingBinaryOperation()
+                case .nullaryOperation(let function):
+                    accumulator = function()
+                    addToDescription(symbol, surround: false, clearIfNotPending: true)
+                }
+                
+            }
+        }
+        
+        for op in program {
+            switch op {
+            case .operand(let operand):
+                setOperand(operand: operand)
+            case .operation(let symbol):
+                performOperation(symbol)
+            case .variable(let variable):
+                setOperand(operand: variables?[variable] ?? 0.0)
+            }
+        }
+        return (result: accumulator, isPending: resultIsPending, description: "\(descriptionString) \(pendingDescriptionString)")
+    }
     
     var result: Double? {
-        get {
-            return accumulator
-        }
+        let result = evaluate()
+        return result.result
     }
     
     var resultIsPending: Bool {
-        get {
-            return pendingBinaryOperation != nil
-        }
+        let result = evaluate()
+        return result.isPending
     }
     
     var description: String {
-        return "\(descriptionString) \(pendingDescriptionString)"
-    }
-    
-    private mutating func addToDescription(_ string: String, surround: Bool = false, clearIfNotPending: Bool = false) {
-        if clearIfNotPending && !resultIsPending {
-            descriptionString = ""
-        }
-        var workingDescriptionString = pendingBinaryOperation == nil ? descriptionString : pendingDescriptionString
-        if surround {
-            workingDescriptionString = "\(string)(\(workingDescriptionString))"
-        }
-        else {
-            workingDescriptionString += " \(string)"
-        }
-        workingDescriptionString = workingDescriptionString.trimmingCharacters(in: CharacterSet.whitespaces)
-        if pendingBinaryOperation == nil {
-            descriptionString = workingDescriptionString
-        }
-        else {
-            pendingDescriptionString = workingDescriptionString
-        }
-    }
-    
-    private mutating func performPendingBinaryOperation() {
-        if pendingBinaryOperation != nil && accumulator != nil {
-            accumulator = pendingBinaryOperation?.perform(with: accumulator!)
-            pendingBinaryOperation = nil
-            descriptionString += " \(pendingDescriptionString)"
-            pendingDescriptionString = ""
-        }
+        let result = evaluate()
+        return result.description
     }
     
     mutating func performOperation(_ symbol: String) {
-        if let operation = operations[symbol] {
-            switch operation {
-            case .constant(let value):
-                accumulator = value
-                addToDescription(symbol, surround:false, clearIfNotPending: true)
-            case .unaryOperation(let function):
-                if accumulator != nil {
-                    accumulator = function(accumulator!)
-                    addToDescription(symbol, surround: true)
-                }
-            case .binaryOperation(let function):
-                if accumulator != nil {
-                    performPendingBinaryOperation()
-                    addToDescription(symbol)
-                    pendingBinaryOperation = PendingBinaryOperation(function: function,
-                                                                    firstOperand: accumulator!)
-                    accumulator = nil
-                }
-            case .equals:
-                performPendingBinaryOperation()
-            case .nullaryOperation(let function):
-                accumulator = function()
-                addToDescription(symbol, surround: false, clearIfNotPending: true)
-            }
-            
-        }
+        program.append(InputType.operation(symbol))
     }
     
     mutating func setOperand(_ operand: Double) {
-        accumulator = operand
-        let formatter = NumberFormatter()
-        formatter.maximumFractionDigits = 6
-        addToDescription(formatter.string(from: NSNumber(value: operand))!,
-                         surround: false,
-                         clearIfNotPending: true)
+        program.append(InputType.operand(operand))
+    }
+    
+    mutating func setVariable(_ variable: String) {
+        program.append(InputType.variable(variable))
     }
     
     mutating func clear() {
-        accumulator = nil
-        pendingBinaryOperation = nil
-        descriptionString = ""
-        pendingDescriptionString = ""
+        program.removeAll()
     }
 }

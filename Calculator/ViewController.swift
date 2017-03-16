@@ -52,12 +52,14 @@ class ViewController: UIViewController {
         if let mathematicalSymbol = sender.currentTitle {
             brain.performOperation(mathematicalSymbol)
         }
-        if let result = brain.result {
+        
+        let evaluationResult = brain.evaluate()
+        if let result = evaluationResult.result {
             displayValue = result
         }
         
-        let description = brain.description
-        if brain.resultIsPending {
+        let description = evaluationResult.description
+        if evaluationResult.isPending {
             descriptionDisplay.text = description + " ..."
         }
         else {
